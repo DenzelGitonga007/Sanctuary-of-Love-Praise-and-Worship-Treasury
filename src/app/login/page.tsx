@@ -21,10 +21,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = () => {
-    loginAsAdmin('treasurer2026');
-    router.push('/admin');
-  };
 
   return (
     <div className="max-w-md mx-auto py-12 px-4 animate-fade-in">
@@ -63,7 +59,7 @@ export default function LoginPage() {
             </div>
             {error && (
               <p className="text-xs text-church-rose-600 font-semibold mt-1.5">
-                Incorrect passcode. (Demo passcode: <code>treasurer2026</code>)
+                Incorrect passcode.
               </p>
             )}
           </div>
@@ -76,20 +72,6 @@ export default function LoginPage() {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Quick Demo Access */}
-        <div className="pt-4 border-t border-slate-100 dark:border-church-dark-800 text-center">
-          <p className="text-[11px] text-slate-400 mb-2">
-            Default Treasurer Passcode: <code>treasurer2026</code>
-          </p>
-          <button
-            onClick={handleDemoLogin}
-            className="inline-flex items-center space-x-1.5 text-xs font-bold text-church-sky-600 hover:text-church-sky-700"
-          >
-            <Key className="w-3.5 h-3.5" />
-            <span>Click to One-Click Demo Login</span>
-          </button>
-        </div>
       </div>
     </div>
   );
