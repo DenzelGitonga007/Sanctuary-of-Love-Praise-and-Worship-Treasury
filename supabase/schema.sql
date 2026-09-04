@@ -3,7 +3,7 @@
 
 -- 1. Create Members Table
 CREATE TABLE IF NOT EXISTS members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY DEFAULT ('m-' || floor(extract(epoch from now()) * 1000)::text),
   name TEXT NOT NULL,
   phone TEXT,
   active BOOLEAN NOT NULL DEFAULT true,
@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS members (
 
 -- 2. Create Contributions Table
 CREATE TABLE IF NOT EXISTS contributions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  member_id UUID REFERENCES members(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY DEFAULT ('c-' || floor(extract(epoch from now()) * 1000)::text),
+  member_id TEXT REFERENCES members(id) ON DELETE SET NULL,
   member_name TEXT NOT NULL,
   month TEXT NOT NULL,
   year INTEGER NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS contributions (
 
 -- 3. Create Expenses Table
 CREATE TABLE IF NOT EXISTS expenses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY DEFAULT ('exp-' || floor(extract(epoch from now()) * 1000)::text),
   date DATE NOT NULL DEFAULT CURRENT_DATE,
   description TEXT NOT NULL,
   category TEXT NOT NULL CHECK (category IN ('Tea', 'Gift', 'Equipment', 'Transaction Cost', 'Transport', 'Event', 'Other')),
@@ -39,18 +39,32 @@ CREATE TABLE IF NOT EXISTS expenses (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 4. Create Audit Logs Table
+-- 4. Create Special Projects Table
+CREATE TABLE IF NOT EXISTS special_projects (
+  id TEXT PRIMARY KEY DEFAULT ('proj-' || floor(extract(epoch from now()) * 1000)::text),
+  name TEXT NOT NULL,
+  description TEXT,
+  target_amount NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'COMPLETED')),
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 5. Create Audit Logs Table
 CREATE TABLE IF NOT EXISTS audit_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY DEFAULT ('log-' || floor(extract(epoch from now()) * 1000)::text),
   actor TEXT NOT NULL,
   action TEXT NOT NULL,
   details TEXT NOT NULL,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 5. Create System Settings Table
+-- 6. Create System Settings Table
 CREATE TABLE IF NOT EXISTS settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY DEFAULT 'primary_settings',
   organization_name TEXT NOT NULL DEFAULT 'Sanctuary of Love Worship Center',
   location TEXT NOT NULL DEFAULT 'Dandora, Kenya',
   team_name TEXT NOT NULL DEFAULT 'Praise & Worship',
@@ -62,47 +76,71 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 6. Enable Row Level Security (RLS)
+-- 7. Enable Row Level Security (RLS)
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contributions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE special_projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- 7. RLS Policies: Public Read Access (Everyone can see transparency records)
-CREATE POLICY "Allow public read access to members" ON members FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to contributions" ON contributions FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to expenses" ON expenses FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to settings" ON settings FOR SELECT USING (true);
+-- 8. RLS Policies: Allow Read & Write via Anon Client Key
+-- Public Read (Transparency for all members)
+CREATE POLICY "Allow public read members" ON members FOR SELECT USING (true);
+CREATE POLICY "Allow public read contributions" ON contributions FOR SELECT USING (true);
+CREATE POLICY "Allow public read expenses" ON expenses FOR SELECT USING (true);
+CREATE POLICY "Allow public read special_projects" ON special_projects FOR SELECT USING (true);
+CREATE POLICY "Allow public read settings" ON settings FOR SELECT USING (true);
+CREATE POLICY "Allow public read audit_logs" ON audit_logs FOR SELECT USING (true);
 
--- 8. RLS Policies: Authenticated Admin Full Access
-CREATE POLICY "Allow authenticated users full access to members" ON members FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated users full access to contributions" ON contributions FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated users full access to expenses" ON expenses FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated users full access to audit_logs" ON audit_logs FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow authenticated users full access to settings" ON settings FOR ALL USING (auth.role() = 'authenticated');
+-- Treasurer Write (Insert, Update, Delete)
+CREATE POLICY "Allow anon insert members" ON members FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anon update members" ON members FOR UPDATE USING (true);
+CREATE POLICY "Allow anon delete members" ON members FOR DELETE USING (true);
 
--- 9. Seed Initial 21 Members
-INSERT INTO members (name, active) VALUES
-('Min Enos Masasi', true),
-('Min Ann Musyoka', true),
-('Pst Priscah Enos', true),
-('Purity Murugi', true),
-('Denzel Gitonga', true),
-('Margerete Waithera', true),
-('Pst Lucas Omondi', true),
-('Ev Elijah Kariuki', true),
-('Quinter Adhiambo', true),
-('Huldah Mweni', true),
-('Pst Levies', true),
-('Pst Josephine Robert', true),
-('Cornel Otin', true),
-('Mary Cornel', true),
-('Nicholus Munyoki', true),
-('Derrington Okwomi', true),
-('Elizabeth Nyambura', true),
-('Janet Omondi', true),
-('Juliana Wayua', true),
-('Mwendwa', true),
-('Agnes Wambui', true)
-ON CONFLICT DO NOTHING;
+CREATE POLICY "Allow anon insert contributions" ON contributions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anon update contributions" ON contributions FOR UPDATE USING (true);
+CREATE POLICY "Allow anon delete contributions" ON contributions FOR DELETE USING (true);
+
+CREATE POLICY "Allow anon insert expenses" ON expenses FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow anon update expenses" ON expenses FOR UPDATE USING (true);
+CREATE POLICY "Allow anon delete expenses" ON expenses FOR DELETE USING (true);
+
+CREATE POLICY "Allow anon write special_projects" ON special_projects FOR ALL USING (true);
+CREATE POLICY "Allow anon write settings" ON settings FOR ALL USING (true);
+CREATE POLICY "Allow anon write audit_logs" ON audit_logs FOR ALL USING (true);
+
+-- 9. Insert Initial Default Settings Row
+INSERT INTO settings (id, organization_name, location, team_name, currency, expected_monthly, expected_tea, expected_tea_urn, opening_balance)
+VALUES ('primary_settings', 'Sanctuary of Love Worship Center', 'Dandora, Kenya', 'Praise & Worship', 'KES', 100, 100, 200, 0)
+ON CONFLICT (id) DO NOTHING;
+
+-- 10. Seed Initial 21 Members (Roster)
+INSERT INTO members (id, name, active) VALUES
+('m1', 'Min Enos Masasi', true),
+('m2', 'Min Ann Musyoka', true),
+('m3', 'Pst Priscah Enos', true),
+('m4', 'Purity Murugi', true),
+('m5', 'Denzel Gitonga', true),
+('m6', 'Margerete Waithera', true),
+('m7', 'Pst Lucas Omondi', true),
+('m8', 'Ev Elijah Kariuki', true),
+('m9', 'Quinter Adhiambo', true),
+('m10', 'Huldah Mweni', true),
+('m11', 'Pst Levies', true),
+('m12', 'Pst Josephine Robert', true),
+('m13', 'Cornel Otin', true),
+('m14', 'Mary Cornel', true),
+('m15', 'Nicholus Munyoki', true),
+('m16', 'Derrington Okwomi', true),
+('m17', 'Elizabeth Nyambura', true),
+('m18', 'Janet Omondi', true),
+('m19', 'Juliana Wayua', true),
+('m20', 'Mwendwa', true),
+('m21', 'Agnes Wambui', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 11. Seed Tea Urn Project as Completed
+INSERT INTO special_projects (id, name, description, target_amount, status, notes)
+VALUES ('proj-1', 'Tea Urn Drive', 'Fundraising for a 15L stainless steel commercial tea urn for overnight worship sessions.', 4200, 'COMPLETED', 'Purchased for KES 4,200. 7 members contributed KES 200 each (total KES 1,400). Remainder from general treasury.')
+ON CONFLICT (id) DO NOTHING;

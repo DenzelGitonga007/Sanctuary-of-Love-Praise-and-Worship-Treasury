@@ -18,6 +18,7 @@ import {
   RefreshCw,
   HelpCircle,
   Layers,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 const SAMPLE_CHATGPT_LIST = `*PRAISE AND WORSHIP TEAM MONTHLY CONTRIBUTION*
@@ -45,6 +46,29 @@ const SAMPLE_CHATGPT_LIST = `*PRAISE AND WORSHIP TEAM MONTHLY CONTRIBUTION*
 20. Mwendwa - 100
 21. Agnes Wambui - 100`;
 
+const SAMPLE_EXCEL_TABLE = `No\tMember Name\tAmount\tStatus
+1\tMin Enos Masasi\t100\tPaid
+2\tMin Ann Musyoka\t\tPending
+3\tPst Priscah Enos\t100\tPaid
+4\tPurity Murugi\t\tPending
+5\tDenzel Gitonga\t100\tPaid
+6\tMargerete Waithera\t100\tPaid
+7\tPst Lucas Omondi\t100\tPaid
+8\tEv Elijah Kariuki\t100\tPaid
+9\tQuinter Adhiambo\t\tPending
+10\tHuldah Mweni\t100\tPaid
+11\tPst Levies\t100\tPaid
+12\tPst Josephine Robert\t\tPending
+13\tCornel Otin\t100\tPaid
+14\tMary Cornel\t100\tPaid
+15\tNicholus Munyoki\t100\tPaid
+16\tDerrington Okwomi\t100\tPaid
+17\tElizabeth Nyambura\t\tPending
+18\tJanet Omondi\t100\tPaid
+19\tJuliana Wayua\t\tPending
+20\tMwendwa\t100\tPaid
+21\tAgnes Wambui\t100\tPaid`;
+
 export default function ChatGPTImporter() {
   const {
     members,
@@ -52,6 +76,7 @@ export default function ChatGPTImporter() {
     batchImportContributions,
     addMember,
     settings,
+    isSupabaseLive,
   } = useTreasury();
 
   const [rawText, setRawText] = useState('');
@@ -85,9 +110,14 @@ export default function ChatGPTImporter() {
     setSuccessMessage(null);
   };
 
-  const handlePasteSample = () => {
+  const handlePasteWhatsAppSample = () => {
     setRawText(SAMPLE_CHATGPT_LIST);
     handleParse(SAMPLE_CHATGPT_LIST);
+  };
+
+  const handlePasteExcelSample = () => {
+    setRawText(SAMPLE_EXCEL_TABLE);
+    handleParse(SAMPLE_EXCEL_TABLE);
   };
 
   const handleClear = () => {
@@ -224,20 +254,27 @@ export default function ChatGPTImporter() {
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-church-dark-900 dark:text-white flex items-center space-x-2">
               <Sparkles className="w-5 h-5 text-church-sky-600" />
-              <span>Paste ChatGPT or WhatsApp Contribution List</span>
+              <span>Smart Importer (Excel, Google Sheets, WhatsApp, ChatGPT)</span>
             </h2>
-            <p className="text-xs text-slate-500">
-              Blank rows (no amount) are shown as <strong>⏳ Not Yet Contributed</strong> and will <strong>not</strong> be saved — only members with amounts are recorded.
+            <p className="text-xs text-slate-500 mt-1">
+              Copy and paste directly from your <strong>Excel workbook</strong>, <strong>WhatsApp group list</strong>, or <strong>ChatGPT text</strong>. The system automatically detects names, matches members, and saves directly into your live Supabase cloud database.
             </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handlePasteSample}
-              className="px-3.5 py-1.5 bg-church-sky-50 dark:bg-church-sky-950 hover:bg-church-sky-100 text-church-sky-700 dark:text-church-sky-300 text-xs font-semibold rounded-xl transition-colors border border-church-sky-200 dark:border-church-sky-800 flex items-center space-x-1.5"
+              onClick={handlePasteExcelSample}
+              className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 text-xs font-semibold rounded-xl transition-colors border border-emerald-200 dark:border-emerald-800 flex items-center space-x-1.5"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Excel Sample</span>
+            </button>
+            <button
+              onClick={handlePasteWhatsAppSample}
+              className="px-3 py-1.5 bg-church-sky-50 dark:bg-church-sky-950 hover:bg-church-sky-100 text-church-sky-700 dark:text-church-sky-300 text-xs font-semibold rounded-xl transition-colors border border-church-sky-200 dark:border-church-sky-800 flex items-center space-x-1.5"
             >
               <ClipboardPaste className="w-3.5 h-3.5" />
-              <span>Load Sample List</span>
+              <span>WhatsApp Sample</span>
             </button>
             {rawText && (
               <button
@@ -256,7 +293,7 @@ export default function ChatGPTImporter() {
             rows={8}
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
-            placeholder={`Paste your list here, for example:\n1. Min Enos Masasi - 100\n2. Min Ann Musyoka -\n3. Pst Priscah Enos - KES 100/=\n4. Denzel Gitonga - 100`}
+            placeholder={`Paste your Excel cells, Sheets table, or WhatsApp list here:\n\nExample Excel paste:\n1\tMin Enos Masasi\t100\n2\tMin Ann Musyoka\t\n3\tPst Priscah Enos\t100\n\nExample WhatsApp list:\n1. Min Enos Masasi - 100\n2. Min Ann Musyoka -\n3. Pst Priscah Enos - KES 100/=`}
             className="w-full p-4 rounded-2xl border border-slate-300 dark:border-church-dark-700 bg-slate-50 dark:bg-church-dark-950 text-slate-800 dark:text-slate-100 font-mono text-xs sm:text-sm focus:ring-2 focus:ring-church-sky-500 focus:bg-white dark:focus:bg-church-dark-900 transition-all resize-y"
           />
         </div>

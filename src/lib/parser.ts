@@ -104,7 +104,45 @@ export function detectContributionType(text: string): ContributionType {
 }
 
 /**
- * Main parser function: Parses ChatGPT / WhatsApp contribution lists.
+ * Helper to clean and parse an amount string (e.g. "KES 100", "100/=", "1,500.00", "-")
+ */
+function parseCleanAmount(str: string): number | null {
+  if (!str) return null;
+  const clean = str
+    .replace(/kes\.?/gi, '')
+    .replace(/ksh\.?/gi, '')
+    .replace(/\/=/g, '')
+    .replace(/,/g, '')
+    .trim();
+
+  if (clean === '' || clean === '-' || clean === 'nil' || clean === 'none' || clean === 'n/a') {
+    return null;
+  }
+
+  const num = parseFloat(clean);
+  return isNaN(num) ? null : num;
+}
+
+/**
+ * Checks if a row looks like an Excel/table header
+ */
+function isHeaderRow(line: string): boolean {
+  const lower = line.toLowerCase();
+  if (
+    lower.includes('member name') ||
+    lower.includes('full name') ||
+    (lower.includes('name') && lower.includes('amount')) ||
+    (lower.includes('no') && lower.includes('name')) ||
+    lower.includes('contribution') && lower.includes('amount') ||
+    lower.includes('phone') && lower.includes('amount')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Main parser function: Parses Excel / Google Sheets (tab-separated), CSV, WhatsApp, or ChatGPT lists.
  */
 export function parseContributionList(
   rawInput: string,
@@ -128,51 +166,88 @@ export function parseContributionList(
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Skip general header/title lines if they don't look like member entries
-    const isHeaderOnly =
+    // Skip general banner/title lines if they don't look like member entries
+    const isBannerOnly =
       /^(praise|worship|team|monthly|tea|contribution|month:|year:|date:|\*+praise|\*+month|\*+tea)/i.test(
         line.replace(/[*_~#]/g, '').trim()
       ) && !/\d+\.\s+[a-zA-Z]/.test(line);
 
-    if (isHeaderOnly && lines.length > 3) {
+    if (isBannerOnly && lines.length > 3) {
       continue;
     }
 
-    // Clean markdown/WhatsApp symbols: *bold*, _italic_, ~strike~
-    const cleanLine = line.replace(/[*_~]/g, '').trim();
+    // Skip header rows from Excel (e.g. "No\tName\tAmount\tStatus")
+    if (isHeaderRow(line)) {
+      continue;
+    }
 
-    // Line patterns:
-    // "1. Min Enos Masasi - 100"
-    // "2. Min Ann Musyoka - "
-    // "3. Pst Priscah Enos - KES 100/="
-    // "- Denzel Gitonga: 100"
-    // "• Derrington Okwomi - 100"
-    
-    // Strip leading numbers or bullets (e.g. "1.", "1)", "-", "•", "*")
-    const withoutPrefix = cleanLine.replace(/^(\d+[\.\)\-:]|\-|\•|\*|\+)\s*/, '').trim();
-
-    if (!withoutPrefix) continue;
-
-    // Split name and amount by separator (- , : , = , tab) or trailing digits
     let namePart = '';
     let amountPart = '';
 
-    // Regex trying to split on separator like " - ", " : ", " = "
-    const sepMatch = withoutPrefix.match(/^(.*?)(?:\s*[-:=–—]\s*)(.*)$/);
+    // Check if line is Tab-Separated (Excel copy paste) or CSV
+    if (line.includes('\t') || (line.includes(',') && !line.includes(' - ') && !line.includes(' : '))) {
+      const delimiter = line.includes('\t') ? '\t' : ',';
+      const cols = line.split(delimiter).map((c) => c.trim()).filter((c) => c.length > 0);
 
-    if (sepMatch) {
-      namePart = sepMatch[1].trim();
-      amountPart = sepMatch[2].trim();
+      if (cols.length === 1) {
+        namePart = cols[0];
+      } else if (cols.length === 2) {
+        // Either [Name, Amount] or [#1, Name]
+        if (/^\d+$/.test(cols[0]) && !/^\d+$/.test(cols[1])) {
+          namePart = cols[1];
+        } else {
+          namePart = cols[0];
+          amountPart = cols[1];
+        }
+      } else if (cols.length >= 3) {
+        // E.g. [#, Name, Amount] or [Name, Phone, Amount] or [#, Name, Phone, Amount]
+        if (/^\d+$/.test(cols[0])) {
+          // col 0 is index
+          namePart = cols[1];
+          // check if col 2 or col 3 is amount
+          const amtCol2 = parseCleanAmount(cols[2]);
+          if (amtCol2 !== null) {
+            amountPart = cols[2];
+          } else if (cols[3]) {
+            amountPart = cols[3];
+          }
+        } else {
+          // col 0 is Name
+          namePart = cols[0];
+          // find first numeric col
+          for (let c = 1; c < cols.length; c++) {
+            if (parseCleanAmount(cols[c]) !== null) {
+              amountPart = cols[c];
+              break;
+            }
+          }
+        }
+      }
     } else {
-      // Maybe trailing digits e.g. "Denzel Gitonga 100" or "Denzel Gitonga KES 100"
-      const trailingDigitMatch = withoutPrefix.match(/^(.*?)[\s\t]+(kes\.?|ksh\.?)?\s*(\d+(?:,\d+)*(?:\.\d+)?(?:\/=)?)$/i);
-      if (trailingDigitMatch) {
-        namePart = trailingDigitMatch[1].trim();
-        amountPart = trailingDigitMatch[3].trim();
+      // Clean WhatsApp markdown symbols: *bold*, _italic_, ~strike~
+      const cleanLine = line.replace(/[*_~]/g, '').trim();
+
+      // Strip leading numbers or bullets (e.g. "1.", "1)", "-", "•", "*", "#1")
+      const withoutPrefix = cleanLine.replace(/^([#]?\d+[\.\)\-:]|\-|\•|\*|\+)\s*/, '').trim();
+
+      if (!withoutPrefix) continue;
+
+      // Regex trying to split on separator like " - ", " : ", " = "
+      const sepMatch = withoutPrefix.match(/^(.*?)(?:\s*[-:=–—]\s*)(.*)$/);
+
+      if (sepMatch) {
+        namePart = sepMatch[1].trim();
+        amountPart = sepMatch[2].trim();
       } else {
-        // Just the name with no separator / amount
-        namePart = withoutPrefix;
-        amountPart = '';
+        // Maybe trailing digits e.g. "Denzel Gitonga 100" or "Denzel Gitonga KES 100"
+        const trailingDigitMatch = withoutPrefix.match(/^(.*?)[\s\t]+(kes\.?|ksh\.?)?\s*(\d+(?:,\d+)*(?:\.\d+)?(?:\/=)?)$/i);
+        if (trailingDigitMatch) {
+          namePart = trailingDigitMatch[1].trim();
+          amountPart = trailingDigitMatch[3].trim();
+        } else {
+          namePart = withoutPrefix;
+          amountPart = '';
+        }
       }
     }
 
@@ -180,19 +255,9 @@ export function parseContributionList(
     if (!namePart || namePart.length < 2) continue;
 
     // Parse amount
-    let amount: number | null = null;
-    const cleanAmountStr = amountPart
-      .replace(/kes\.?/gi, '')
-      .replace(/ksh\.?/gi, '')
-      .replace(/\/=/g, '')
-      .replace(/,/g, '')
-      .trim();
+    const amount = parseCleanAmount(amountPart);
 
-    if (cleanAmountStr && /^\d+(\.\d+)?$/.test(cleanAmountStr)) {
-      amount = parseFloat(cleanAmountStr);
-    }
-
-    // Match member
+    // Match member against existing database members
     const matchedMember = findBestMemberMatch(namePart, existingMembers);
 
     // Duplicate check

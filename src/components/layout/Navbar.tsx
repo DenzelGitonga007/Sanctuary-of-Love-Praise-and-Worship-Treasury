@@ -17,12 +17,15 @@ import {
   X,
   Sparkles,
   LogOut,
+  Database,
+  RefreshCw,
+  CheckCircle2,
 } from 'lucide-react';
 import QRCodeModal from '@/components/ui/QRCodeModal';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { isAdmin, logout } = useTreasury();
+  const { isAdmin, logout, isSupabaseLive, isSyncing, refreshFromCloud, lastSyncedAt } = useTreasury();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
 
@@ -90,6 +93,39 @@ export default function Navbar() {
 
             {/* Right Action Icons & Admin CTA */}
             <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* Cloud DB Status Indicator */}
+              <button
+                onClick={() => refreshFromCloud()}
+                title={
+                  isSupabaseLive
+                    ? `Supabase Live Connected${lastSyncedAt ? ` (Synced: ${lastSyncedAt.toLocaleTimeString()})` : ''} - Click to refresh`
+                    : 'Offline / LocalStorage mode - Click to connect'
+                }
+                disabled={isSyncing}
+                className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                  isSupabaseLive
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
+                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60'
+                }`}
+              >
+                <span className="relative flex h-2 w-2">
+                  {isSupabaseLive && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  )}
+                  <span
+                    className={`relative inline-flex rounded-full h-2 w-2 ${
+                      isSupabaseLive ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
+                  ></span>
+                </span>
+                <span className="text-[11px] font-semibold tracking-tight">
+                  {isSyncing ? 'Syncing...' : isSupabaseLive ? 'Cloud Live' : 'Local Mode'}
+                </span>
+                <RefreshCw
+                  className={`w-3 h-3 ml-0.5 opacity-70 ${isSyncing ? 'animate-spin' : ''}`}
+                />
+              </button>
+
               {/* QR Code trigger */}
               <button
                 onClick={() => setQrModalOpen(true)}
