@@ -97,3 +97,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 > *“For we are taking pains to do what is right, not only in the eyes of the Lord but also in the eyes of man.”*  
 > **— 2 Corinthians 8:21**
+
+
+Treasurer2026@SanctuaryofLoveWCP&W

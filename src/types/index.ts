@@ -42,6 +42,22 @@ export interface Expense {
   createdAt: string;
 }
 
+/**
+ * A Special Project is a one-off fundraising drive (e.g. Tea Urn, Microphone Stand).
+ * Contributions linked to a project count toward the general balance.
+ * Projects can be marked COMPLETED once the goal is achieved.
+ */
+export interface SpecialProject {
+  id: string;
+  name: string;             // e.g. "Tea Urn Drive"
+  description?: string;     // optional details
+  targetAmount: number;     // fundraising goal in KES
+  status: 'ACTIVE' | 'COMPLETED';
+  startedAt: string;        // ISO date
+  completedAt?: string;     // ISO date, set when marked complete
+  notes?: string;
+}
+
 export interface Transaction {
   id: string;
   date: string;
@@ -80,7 +96,7 @@ export interface ParsedItem {
   matchedMemberId: string | null;
   matchedMemberName: string;
   isNewMember: boolean;
-  amount: number | null; // null if blank
+  amount: number | null; // null if blank = not yet contributed
   status: 'VALID' | 'BLANK' | 'UNKNOWN_MEMBER' | 'DUPLICATE';
   duplicateWarning?: string;
   duplicateAction: 'SKIP' | 'REPLACE' | 'ADD';

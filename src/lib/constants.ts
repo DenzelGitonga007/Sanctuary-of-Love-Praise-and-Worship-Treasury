@@ -1,4 +1,4 @@
-import { Member, Contribution, Expense, SystemSettings } from '@/types';
+import { Member, Contribution, Expense, SystemSettings, SpecialProject } from '@/types';
 
 export const INITIAL_MEMBERS: Member[] = [
   { id: 'm1', name: 'Min Enos Masasi', active: true, createdAt: '2026-04-01T00:00:00Z' },
@@ -25,6 +25,9 @@ export const INITIAL_MEMBERS: Member[] = [
 ];
 
 export const MONTHS = [
+  'January',
+  'February',
+  'March',
   'April',
   'May',
   'June',
@@ -48,6 +51,23 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   expectedTeaUrnContribution: 200,
   openingBalance: 0,
 };
+
+/**
+ * Pre-seeded special projects.
+ * Tea Urn Drive is COMPLETED — funded and purchased in June 2026.
+ */
+export const INITIAL_SPECIAL_PROJECTS: SpecialProject[] = [
+  {
+    id: 'proj-1',
+    name: 'Tea Urn Drive',
+    description: 'Fundraising for a 15L stainless steel commercial tea urn for overnight worship sessions.',
+    targetAmount: 4200,
+    status: 'COMPLETED',
+    startedAt: '2026-05-01T00:00:00Z',
+    completedAt: '2026-06-25T00:00:00Z',
+    notes: 'Tea urn purchased for KES 4,200. 7 members contributed KES 200 each (total KES 1,400). Remainder from general treasury.',
+  },
+];
 
 // Seed historical contributions (April - August 2026)
 export const INITIAL_CONTRIBUTIONS: Contribution[] = [
@@ -148,14 +168,14 @@ export const INITIAL_CONTRIBUTIONS: Contribution[] = [
   { id: 'c-jun-t-13', memberId: 'm13', memberName: 'Cornel Otin', month: 'June', year: 2026, type: 'TEA', amount: 100, dateReceived: '2026-06-14', createdAt: '2026-06-14T10:00:00Z' },
   { id: 'c-jun-t-15', memberId: 'm15', memberName: 'Nicholus Munyoki', month: 'June', year: 2026, type: 'TEA', amount: 100, dateReceived: '2026-06-14', createdAt: '2026-06-14T10:00:00Z' },
 
-  // Special Tea Urn contributions (KES 200 target)
-  { id: 'c-urn-1', memberId: 'm1', memberName: 'Min Enos Masasi', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Support', createdAt: '2026-06-20T10:00:00Z' },
-  { id: 'c-urn-2', memberId: 'm2', memberName: 'Min Ann Musyoka', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Support', createdAt: '2026-06-20T10:00:00Z' },
-  { id: 'c-urn-3', memberId: 'm3', memberName: 'Pst Priscah Enos', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Support', createdAt: '2026-06-20T10:00:00Z' },
-  { id: 'c-urn-5', memberId: 'm5', memberName: 'Denzel Gitonga', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Support', createdAt: '2026-06-20T10:00:00Z' },
-  { id: 'c-urn-7', memberId: 'm7', memberName: 'Pst Lucas Omondi', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Support', createdAt: '2026-06-20T10:00:00Z' },
-  { id: 'c-urn-8', memberId: 'm8', memberName: 'Ev Elijah Kariuki', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Support', createdAt: '2026-06-20T10:00:00Z' },
-  { id: 'c-urn-11', memberId: 'm11', memberName: 'Pst Levies', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Support', createdAt: '2026-06-20T10:00:00Z' },
+  // Tea Urn Drive contributions — June 2026 (completed project, counts toward general balance)
+  { id: 'c-urn-1', memberId: 'm1', memberName: 'Min Enos Masasi', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Drive — proj-1', createdAt: '2026-06-20T10:00:00Z' },
+  { id: 'c-urn-2', memberId: 'm2', memberName: 'Min Ann Musyoka', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Drive — proj-1', createdAt: '2026-06-20T10:00:00Z' },
+  { id: 'c-urn-3', memberId: 'm3', memberName: 'Pst Priscah Enos', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Drive — proj-1', createdAt: '2026-06-20T10:00:00Z' },
+  { id: 'c-urn-5', memberId: 'm5', memberName: 'Denzel Gitonga', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Drive — proj-1', createdAt: '2026-06-20T10:00:00Z' },
+  { id: 'c-urn-7', memberId: 'm7', memberName: 'Pst Lucas Omondi', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Drive — proj-1', createdAt: '2026-06-20T10:00:00Z' },
+  { id: 'c-urn-8', memberId: 'm8', memberName: 'Ev Elijah Kariuki', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Drive — proj-1', createdAt: '2026-06-20T10:00:00Z' },
+  { id: 'c-urn-11', memberId: 'm11', memberName: 'Pst Levies', month: 'June', year: 2026, type: 'TEA_URN', amount: 200, dateReceived: '2026-06-20', notes: 'Tea Urn Drive — proj-1', createdAt: '2026-06-20T10:00:00Z' },
 
   // July 2026 - Monthly & Tea
   { id: 'c-jul-m-1', memberId: 'm1', memberName: 'Min Enos Masasi', month: 'July', year: 2026, type: 'MONTHLY', amount: 100, dateReceived: '2026-07-12', createdAt: '2026-07-12T10:00:00Z' },
@@ -240,7 +260,7 @@ export const INITIAL_EXPENSES: Expense[] = [
     category: 'Equipment',
     amount: 4200,
     reference: 'RCPT-TEAURN-02',
-    notes: 'Funded partly through special tea urn drive',
+    notes: 'Funded partly through Tea Urn Drive special project (proj-1)',
     createdAt: '2026-06-25T11:00:00Z',
   },
   {

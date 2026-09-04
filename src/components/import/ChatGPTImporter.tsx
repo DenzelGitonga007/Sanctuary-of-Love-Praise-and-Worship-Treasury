@@ -227,7 +227,7 @@ export default function ChatGPTImporter() {
               <span>Paste ChatGPT or WhatsApp Contribution List</span>
             </h2>
             <p className="text-xs text-slate-500">
-              The smart parser tolerates bold formatting (*), numbers, bullets, KES symbols, and blank records.
+              Blank rows (no amount) are shown as <strong>⏳ Not Yet Contributed</strong> and will <strong>not</strong> be saved — only members with amounts are recorded.
             </p>
           </div>
 
@@ -436,8 +436,8 @@ export default function ChatGPTImporter() {
                         </span>
                       )}
                       {item.status === 'BLANK' && (
-                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-church-dark-800 text-slate-500 text-[11px] font-medium">
-                          <span>— Unrecorded</span>
+                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 text-[11px] font-semibold" title="This member has not contributed yet. This row will NOT be saved.">
+                          <span>⏳ Not Yet Contributed — skipped</span>
                         </span>
                       )}
                       {item.status === 'UNKNOWN_MEMBER' && (
@@ -487,10 +487,15 @@ export default function ChatGPTImporter() {
             <button
               onClick={handleCommitImport}
               disabled={validEntries.length === 0}
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-600/20 transition-all active:scale-95"
+              className="flex flex-col items-center px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-600/20 transition-all active:scale-95"
             >
-              <CheckCircle2 className="w-4 h-4 text-church-gold-300" />
-              <span>Confirm & Import {validEntries.length} Records</span>
+              <span className="flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-church-gold-300" />
+                <span>Save {validEntries.length} Contributions to Treasury</span>
+              </span>
+              {blankEntries.length > 0 && (
+                <span className="text-[10px] opacity-80 font-normal mt-0.5">{blankEntries.length} blank rows skipped (not saved)</span>
+              )}
             </button>
           </div>
         </div>

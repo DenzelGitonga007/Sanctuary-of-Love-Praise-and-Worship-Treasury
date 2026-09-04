@@ -1,2 +1,22 @@
+# Dependencies
 node_modules/*
+
+# Environment variables (never commit these!)
 .env
+.env.local
+.env.*.local
+
+# Next.js build output (generated files, not source code)
+.next/
+out/
+
+# Production bundle
+/build
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.vscode/
+.idea/

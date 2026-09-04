@@ -8,11 +8,13 @@ import {
   SystemSettings,
   AuditLog,
   ContributionType,
+  SpecialProject,
 } from '@/types';
 import {
   INITIAL_MEMBERS,
   INITIAL_CONTRIBUTIONS,
   INITIAL_EXPENSES,
+  INITIAL_SPECIAL_PROJECTS,
   DEFAULT_SETTINGS,
   MONTHS,
   HISTORICAL_MONTHS,
@@ -37,9 +39,10 @@ interface TreasuryContextType {
   expenses: Expense[];
   settings: SystemSettings;
   auditLogs: AuditLog[];
+  specialProjects: SpecialProject[];
   isLoading: boolean;
   isAdmin: boolean;
-  
+
   // Calculated metrics
   currentBalance: number;
   totalMonthly: number;
@@ -48,15 +51,19 @@ interface TreasuryContextType {
   totalExpenses: number;
   monthlyStats: MonthlyStat[];
 
-  // Actions
+  // Actions — Members
   loginAsAdmin: (passcode?: string) => boolean;
   logout: () => void;
   addMember: (name: string, phone?: string) => Member;
   updateMember: (id: string, updates: Partial<Member>) => void;
   toggleMemberActive: (id: string) => void;
+
+  // Actions — Contributions
   addContribution: (contribution: Omit<Contribution, 'id' | 'createdAt'>) => Contribution;
   updateContribution: (id: string, updates: Partial<Contribution>) => void;
   deleteContribution: (id: string) => void;
+  deleteContributionsByMonth: (month: string, year: number, type?: ContributionType) => number;
+  bulkDeleteContributions: (ids: string[]) => number;
   batchImportContributions: (
     items: {
       memberId: string;
@@ -69,9 +76,19 @@ interface TreasuryContextType {
     }[],
     actionIfDuplicate?: 'SKIP' | 'REPLACE' | 'ADD'
   ) => { importedCount: number; replacedCount: number };
+
+  // Actions — Expenses
   addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Expense;
   updateExpense: (id: string, updates: Partial<Expense>) => void;
   deleteExpense: (id: string) => void;
+
+  // Actions — Special Projects
+  addSpecialProject: (project: Omit<SpecialProject, 'id'>) => SpecialProject;
+  updateSpecialProject: (id: string, updates: Partial<SpecialProject>) => void;
+  deleteSpecialProject: (id: string) => void;
+  toggleProjectStatus: (id: string) => void;
+
+  // Actions — Settings
   updateSettings: (newSettings: Partial<SystemSettings>) => void;
   resetToInitialData: () => void;
 }
@@ -85,6 +102,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'sol_treasury_settings_v1',
   AUDIT_LOGS: 'sol_treasury_audit_v1',
   AUTH: 'sol_treasury_is_admin_v1',
+  SPECIAL_PROJECTS: 'sol_treasury_projects_v1',
 };
 
 export function TreasuryProvider({ children }: { children: React.ReactNode }) {
@@ -92,6 +110,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
   const [contributions, setContributions] = useState<Contribution[]>(INITIAL_CONTRIBUTIONS);
   const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [specialProjects, setSpecialProjects] = useState<SpecialProject[]>(INITIAL_SPECIAL_PROJECTS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
     {
       id: 'log-seed',
@@ -113,6 +132,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       const savedAudit = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
       const savedAuth = localStorage.getItem(STORAGE_KEYS.AUTH);
+      const savedProjects = localStorage.getItem(STORAGE_KEYS.SPECIAL_PROJECTS);
 
       if (savedMembers) setMembers(JSON.parse(savedMembers));
       if (savedContributions) setContributions(JSON.parse(savedContributions));
@@ -120,6 +140,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       if (savedSettings) setSettings(JSON.parse(savedSettings));
       if (savedAudit) setAuditLogs(JSON.parse(savedAudit));
       if (savedAuth === 'true') setIsAdmin(true);
+      if (savedProjects) setSpecialProjects(JSON.parse(savedProjects));
     } catch (e) {
       console.warn('Could not load stored treasury data:', e);
     } finally {
@@ -137,12 +158,15 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
       localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
       localStorage.setItem(STORAGE_KEYS.AUTH, isAdmin ? 'true' : 'false');
+      localStorage.setItem(STORAGE_KEYS.SPECIAL_PROJECTS, JSON.stringify(specialProjects));
     } catch (e) {
       console.error('Failed to sync to local storage:', e);
     }
-  }, [members, contributions, expenses, settings, auditLogs, isAdmin, isLoading]);
+  }, [members, contributions, expenses, settings, auditLogs, isAdmin, isLoading, specialProjects]);
 
-  // Calculations
+  // ────────────────────────────────────────────────────────
+  // Calculations — all amounts in KES
+  // ────────────────────────────────────────────────────────
   const totalMonthly = useMemo(
     () => contributions.filter((c) => c.type === 'MONTHLY').reduce((sum, c) => sum + c.amount, 0),
     [contributions]
@@ -153,6 +177,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     [contributions]
   );
 
+  // All non-MONTHLY, non-TEA contributions (Tea Urn, Special, Other) count toward balance
   const totalOther = useMemo(
     () => contributions.filter((c) => !['MONTHLY', 'TEA'].includes(c.type)).reduce((sum, c) => sum + c.amount, 0),
     [contributions]
@@ -163,13 +188,13 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     [expenses]
   );
 
-  // Dynamic formula: Opening Balance + All Inflows - All Expenses
+  // Dynamic formula: Opening Balance + All Inflows − All Expenses
   const currentBalance = useMemo(
     () => (settings.openingBalance || 0) + totalMonthly + totalTea + totalOther - totalExpenses,
     [settings.openingBalance, totalMonthly, totalTea, totalOther, totalExpenses]
   );
 
-  // Monthly stats (April to September 2026 + any other recorded months)
+  // Monthly stats per calendar month
   const monthlyStats: MonthlyStat[] = useMemo(() => {
     const allMonths = Array.from(
       new Set([...HISTORICAL_MONTHS, ...contributions.map((c) => c.month)])
@@ -193,15 +218,12 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         .filter((c) => !['MONTHLY', 'TEA'].includes(c.type))
         .reduce((sum, c) => sum + c.amount, 0);
 
-      // Match expenses for this month based on expense date
+      // Match expenses for this month by their date — using locale long month name
       const monthExpenses = expenses
         .filter((e) => {
           const d = new Date(e.date);
-          const expenseMonthName = MONTHS[d.getMonth() + 3] || ''; // Apr is index 0 in MONTHS
-          return (
-            d.toLocaleString('default', { month: 'long' }).toLowerCase() === m.toLowerCase() ||
-            expenseMonthName.toLowerCase() === m.toLowerCase()
-          );
+          const expMonth = d.toLocaleString('en-US', { month: 'long' });
+          return expMonth.toLowerCase() === m.toLowerCase();
         })
         .reduce((sum, e) => sum + e.amount, 0);
 
@@ -232,9 +254,10 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     });
   }, [contributions, expenses]);
 
-  // Auth actions
+  // ────────────────────────────────────────────────────────
+  // Auth
+  // ────────────────────────────────────────────────────────
   const loginAsAdmin = (passcode?: string) => {
-    // Default demo passcode is "treasurer2026" or "admin" or empty for demo convenience
     if (!passcode || passcode === 'treasurer2026' || passcode === 'admin' || passcode === 'sol2026') {
       setIsAdmin(true);
       return true;
@@ -242,11 +265,11 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     return false;
   };
 
-  const logout = () => {
-    setIsAdmin(false);
-  };
+  const logout = () => setIsAdmin(false);
 
+  // ────────────────────────────────────────────────────────
   // Member management
+  // ────────────────────────────────────────────────────────
   const addMember = (name: string, phone?: string): Member => {
     const newMember: Member = {
       id: `m-${Date.now()}`,
@@ -302,7 +325,9 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     ]);
   };
 
+  // ────────────────────────────────────────────────────────
   // Contribution actions
+  // ────────────────────────────────────────────────────────
   const addContribution = (contribution: Omit<Contribution, 'id' | 'createdAt'>): Contribution => {
     const newContribution: Contribution = {
       ...contribution,
@@ -355,7 +380,50 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     ]);
   };
 
-  // Batch import
+  /** Delete all contributions for a specific month/year (optionally filtered by type). Returns count deleted. */
+  const deleteContributionsByMonth = (month: string, year: number, type?: ContributionType): number => {
+    let count = 0;
+    setContributions((prev) => {
+      const remaining = prev.filter((c) => {
+        const matchMonth = c.month.toLowerCase() === month.toLowerCase() && c.year === year;
+        const matchType = type ? c.type === type : true;
+        if (matchMonth && matchType) { count++; return false; }
+        return true;
+      });
+      return remaining;
+    });
+    setAuditLogs((prev) => [
+      {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'Treasurer',
+        action: 'DELETE',
+        details: `Wiped ${count} contribution record(s) for ${month} ${year}${type ? ` (${type})` : ''}.`,
+      },
+      ...prev,
+    ]);
+    return count;
+  };
+
+  /** Delete a list of contributions by ID. Returns count deleted. */
+  const bulkDeleteContributions = (ids: string[]): number => {
+    const idSet = new Set(ids);
+    const targets = contributions.filter((c) => idSet.has(c.id));
+    setContributions((prev) => prev.filter((c) => !idSet.has(c.id)));
+    setAuditLogs((prev) => [
+      {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'Treasurer',
+        action: 'DELETE',
+        details: `Bulk deleted ${targets.length} contribution record(s).`,
+      },
+      ...prev,
+    ]);
+    return targets.length;
+  };
+
+  // Batch import (only items with amount > 0 are saved — blank = not contributed)
   const batchImportContributions = (
     items: {
       memberId: string;
@@ -375,7 +443,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       const working = [...prev];
 
       items.forEach((item) => {
-        if (item.amount <= 0) return; // ignore zero/blank
+        if (!item.amount || item.amount <= 0) return; // BLANK = skip, do NOT save
 
         const existingIdx = working.findIndex(
           (c) =>
@@ -409,7 +477,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
             });
             importedCount++;
           }
-          // if SKIP, do nothing
+          // SKIP: do nothing
         } else {
           working.push({
             id: `c-import-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -436,7 +504,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         timestamp: new Date().toISOString(),
         actor: 'Treasurer',
         action: 'IMPORT',
-        details: `Batch imported ${importedCount} records (replaced ${replacedCount} duplicates).`,
+        details: `Batch imported ${importedCount} new + ${replacedCount} updated contribution records.`,
       },
       ...prev,
     ]);
@@ -444,7 +512,9 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     return { importedCount, replacedCount };
   };
 
+  // ────────────────────────────────────────────────────────
   // Expense management
+  // ────────────────────────────────────────────────────────
   const addExpense = (expense: Omit<Expense, 'id' | 'createdAt'>): Expense => {
     const newExpense: Expense = {
       ...expense,
@@ -497,7 +567,73 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     ]);
   };
 
-  // Settings
+  // ────────────────────────────────────────────────────────
+  // Special Projects
+  // ────────────────────────────────────────────────────────
+  const addSpecialProject = (project: Omit<SpecialProject, 'id'>): SpecialProject => {
+    const newProject: SpecialProject = {
+      ...project,
+      id: `proj-${Date.now()}`,
+    };
+    setSpecialProjects((prev) => [newProject, ...prev]);
+    setAuditLogs((prev) => [
+      {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'Treasurer',
+        action: 'CREATE',
+        details: `Created special project: "${newProject.name}" (target KES ${newProject.targetAmount})`,
+      },
+      ...prev,
+    ]);
+    return newProject;
+  };
+
+  const updateSpecialProject = (id: string, updates: Partial<SpecialProject>) => {
+    setSpecialProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
+    );
+  };
+
+  const deleteSpecialProject = (id: string) => {
+    const target = specialProjects.find((p) => p.id === id);
+    if (!target) return;
+    setSpecialProjects((prev) => prev.filter((p) => p.id !== id));
+    setAuditLogs((prev) => [
+      {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'Treasurer',
+        action: 'DELETE',
+        details: `Deleted special project: "${target.name}"`,
+      },
+      ...prev,
+    ]);
+  };
+
+  const toggleProjectStatus = (id: string) => {
+    const project = specialProjects.find((p) => p.id === id);
+    if (!project) return;
+    const newStatus = project.status === 'ACTIVE' ? 'COMPLETED' : 'ACTIVE';
+    updateSpecialProject(id, {
+      status: newStatus,
+      completedAt: newStatus === 'COMPLETED' ? new Date().toISOString() : undefined,
+    });
+    setAuditLogs((prev) => [
+      {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: 'Treasurer',
+        action: 'UPDATE',
+        details: `Special project "${project.name}" marked as ${newStatus}.`,
+      },
+      ...prev,
+    ]);
+  };
+
+  // ────────────────────────────────────────────────────────
+  // Settings & Reset
+  // ────────────────────────────────────────────────────────
   const updateSettings = (newSettings: Partial<SystemSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
     setAuditLogs((prev) => [
@@ -517,6 +653,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     setContributions(INITIAL_CONTRIBUTIONS);
     setExpenses(INITIAL_EXPENSES);
     setSettings(DEFAULT_SETTINGS);
+    setSpecialProjects(INITIAL_SPECIAL_PROJECTS);
     setAuditLogs([
       {
         id: `log-${Date.now()}`,
@@ -526,9 +663,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         details: 'Reset treasury records to initial seed data.',
       },
     ]);
-    try {
-      localStorage.clear();
-    } catch {}
+    try { localStorage.clear(); } catch {}
   };
 
   return (
@@ -539,6 +674,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         expenses,
         settings,
         auditLogs,
+        specialProjects,
         isLoading,
         isAdmin,
         currentBalance,
@@ -555,10 +691,16 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         addContribution,
         updateContribution,
         deleteContribution,
+        deleteContributionsByMonth,
+        bulkDeleteContributions,
         batchImportContributions,
         addExpense,
         updateExpense,
         deleteExpense,
+        addSpecialProject,
+        updateSpecialProject,
+        deleteSpecialProject,
+        toggleProjectStatus,
         updateSettings,
         resetToInitialData,
       }}
