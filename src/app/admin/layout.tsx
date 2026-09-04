@@ -47,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const adminNav = [
     { name: 'Overview', href: '/admin', icon: LayoutDashboard },
-    { name: 'Import ChatGPT Lists', href: '/admin/import', icon: Sparkles, badge: 'Smart' },
+    { name: 'Import Lists', href: '/admin/import', icon: Sparkles, badge: 'Smart' },
     { name: 'Contributions', href: '/admin/contributions', icon: HeartHandshake },
     { name: 'Expenses', href: '/admin/expenses', icon: Receipt },
     { name: 'Members', href: '/admin/members', icon: Users },
@@ -66,18 +66,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                isActive
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${isActive
                   ? 'bg-church-sky-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-church-dark-800'
-              }`}
+                }`}
             >
               <Icon className="w-4 h-4 opacity-90" />
               <span>{item.name}</span>
               {item.badge && (
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-church-gold-100 text-church-gold-800 font-bold'
-                }`}>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-church-gold-100 text-church-gold-800 font-bold'
+                  }`}>
                   {item.badge}
                 </span>
               )}

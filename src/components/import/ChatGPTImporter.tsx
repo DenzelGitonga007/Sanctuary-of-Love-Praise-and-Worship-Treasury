@@ -144,12 +144,12 @@ export default function ChatGPTImporter() {
       prev.map((i) =>
         i.id === item.id
           ? {
-              ...i,
-              matchedMemberId: created.id,
-              matchedMemberName: created.name,
-              isNewMember: false,
-              status: i.amount === null ? 'BLANK' : 'VALID',
-            }
+            ...i,
+            matchedMemberId: created.id,
+            matchedMemberName: created.name,
+            isNewMember: false,
+            status: i.amount === null ? 'BLANK' : 'VALID',
+          }
           : i
       )
     );
@@ -166,7 +166,7 @@ export default function ChatGPTImporter() {
         year: selectedYear,
         type: selectedType,
         amount: i.amount!,
-        notes: `Imported via ChatGPT tool`,
+        notes: `Imported`,
       }));
 
     if (validItems.length === 0) {
@@ -186,7 +186,7 @@ export default function ChatGPTImporter() {
         spread: 70,
         origin: { y: 0.6 },
       });
-    } catch {}
+    } catch { }
 
     setSuccessMessage(
       `Successfully saved ${validItems.length} records for ${selectedMonth} ${selectedYear} (${importedCount} new, ${replacedCount} updated).`
@@ -373,9 +373,8 @@ export default function ChatGPTImporter() {
                 {parsedItems.map((item, idx) => (
                   <tr
                     key={item.id}
-                    className={`hover:bg-slate-50/80 dark:hover:bg-church-dark-800/40 transition-colors ${
-                      item.status === 'UNKNOWN_MEMBER' ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''
-                    }`}
+                    className={`hover:bg-slate-50/80 dark:hover:bg-church-dark-800/40 transition-colors ${item.status === 'UNKNOWN_MEMBER' ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''
+                      }`}
                   >
                     <td className="py-3 px-4 font-mono text-slate-400 text-xs">{idx + 1}</td>
 

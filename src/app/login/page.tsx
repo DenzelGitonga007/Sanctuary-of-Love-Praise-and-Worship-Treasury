@@ -57,7 +57,7 @@ export default function LoginPage() {
                   setPasscode(e.target.value);
                   setError(false);
                 }}
-                placeholder="Enter passcode (e.g., treasurer2026)"
+                placeholder="Enter passcode (e.g., passcode123)"
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-church-dark-700 bg-slate-50 dark:bg-church-dark-950 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-church-sky-500"
               />
             </div>

@@ -84,7 +84,7 @@ export default function BalanceHero({ onOpenShareModal }: BalanceHeroProps) {
               className="flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-gradient-to-r from-church-rose-600 to-church-rose-700 hover:from-church-rose-500 hover:to-church-rose-600 text-white font-semibold text-xs sm:text-sm shadow-md transition-all hover:scale-[1.02]"
             >
               <Sparkles className="w-4 h-4 text-church-gold-300" />
-              <span>Import ChatGPT / WhatsApp List</span>
+              <span>Import List</span>
             </Link>
           ) : (
             <Link

@@ -58,7 +58,7 @@ export default function AdminOverviewPage() {
             className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-church-sky-500 to-church-sky-600 hover:from-church-sky-400 hover:to-church-sky-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all hover:scale-102"
           >
             <Sparkles className="w-4 h-4 text-church-gold-300" />
-            <span>Import ChatGPT List</span>
+            <span>Import List</span>
           </Link>
           <Link
             href="/admin/expenses"
