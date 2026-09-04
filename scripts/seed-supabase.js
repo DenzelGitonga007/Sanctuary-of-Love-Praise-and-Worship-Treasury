@@ -1,8 +1,26 @@
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uwsruiisuiiitgewwcld.supabase.co';
-const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_cIL6dW-QEu0aYeWx1a-t1g_3fbHYvcf';
+// Load environment variables from process.env or .env.local
+let url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+let key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if ((!url || !key) && fs.existsSync('.env.local')) {
+  const envContent = fs.readFileSync('.env.local', 'utf8');
+  for (const line of envContent.split('\n')) {
+    const match = line.trim().match(/^([^=]+)=(.*)$/);
+    if (match) {
+      const [_, k, v] = match;
+      if (k === 'NEXT_PUBLIC_SUPABASE_URL' && !url) url = v.trim();
+      if (k === 'NEXT_PUBLIC_SUPABASE_ANON_KEY' && !key) key = v.trim();
+    }
+  }
+}
+
+if (!url || !key) {
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY in environment or .env.local');
+  process.exit(1);
+}
 
 const supabase = createClient(url, key);
 
