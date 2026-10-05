@@ -17,7 +17,6 @@ import {
   INITIAL_SPECIAL_PROJECTS,
   DEFAULT_SETTINGS,
   MONTHS,
-  HISTORICAL_MONTHS,
 } from './constants';
 import { supabase, isSupabaseConfigured } from './supabase';
 
@@ -57,6 +56,11 @@ interface TreasuryContextType {
   totalOther: number;
   totalExpenses: number;
   monthlyStats: MonthlyStat[];
+
+  // Active period (month + year) management
+  activePeriods: { month: string; year: number }[];
+  addPeriod: (month: string, year: number) => void;
+  removePeriod: (month: string, year: number) => void;
 
   // Actions — Auth
   loginAsAdmin: (passcode?: string) => boolean;
@@ -112,6 +116,7 @@ const STORAGE_KEYS = {
   AUDIT_LOGS: 'sol_treasury_audit_v1',
   AUTH: 'sol_treasury_is_admin_v1',
   SPECIAL_PROJECTS: 'sol_treasury_projects_v1',
+  ACTIVE_PERIODS: 'sol_treasury_periods_v1',
 };
 
 export function TreasuryProvider({ children }: { children: React.ReactNode }) {
@@ -120,6 +125,10 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
   const [specialProjects, setSpecialProjects] = useState<SpecialProject[]>(INITIAL_SPECIAL_PROJECTS);
+
+  // activePeriods: starts empty — auto-populated from existing contribution data on first load,
+  // then managed entirely through the admin UI (no hardcoded months in code).
+  const [activePeriods, setActivePeriods] = useState<{ month: string; year: number }[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
     {
       id: 'log-seed',
@@ -165,20 +174,35 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (cRes.data && cRes.data.length > 0) {
-        setContributions(
-          cRes.data.map((c) => ({
-            id: c.id,
-            memberId: c.member_id || '',
-            memberName: c.member_name,
-            month: c.month,
-            year: c.year,
-            type: c.type as ContributionType,
-            amount: Number(c.amount) || 0,
-            dateReceived: c.date_received || new Date().toISOString().split('T')[0],
-            notes: c.notes || undefined,
-            createdAt: c.created_at || new Date().toISOString(),
-          }))
-        );
+        const mappedContribs = cRes.data.map((c) => ({
+          id: c.id,
+          memberId: c.member_id || '',
+          memberName: c.member_name,
+          month: c.month,
+          year: c.year,
+          type: c.type as ContributionType,
+          amount: Number(c.amount) || 0,
+          dateReceived: c.date_received || new Date().toISOString().split('T')[0],
+          notes: c.notes || undefined,
+          createdAt: c.created_at || new Date().toISOString(),
+        }));
+        setContributions(mappedContribs);
+
+        // If no periods are saved in localStorage, auto-derive from fetched contributions
+        const savedPeriods = localStorage.getItem(STORAGE_KEYS.ACTIVE_PERIODS);
+        if (!savedPeriods) {
+          const MONTH_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+          const periodMap = new Map<string, { month: string; year: number }>();
+          mappedContribs.forEach((c) => {
+            const key = `${c.month}-${c.year}`;
+            if (!periodMap.has(key)) periodMap.set(key, { month: c.month, year: c.year });
+          });
+          const derived = Array.from(periodMap.values()).sort((a, b) => {
+            if (a.year !== b.year) return a.year - b.year;
+            return MONTH_ORDER.indexOf(a.month) - MONTH_ORDER.indexOf(b.month);
+          });
+          setActivePeriods(derived);
+        }
       }
 
       if (eRes.data && eRes.data.length > 0) {
@@ -257,6 +281,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       const savedAudit = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
       const savedAuth = localStorage.getItem(STORAGE_KEYS.AUTH);
       const savedProjects = localStorage.getItem(STORAGE_KEYS.SPECIAL_PROJECTS);
+      const savedPeriods = localStorage.getItem(STORAGE_KEYS.ACTIVE_PERIODS);
 
       if (savedMembers) setMembers(JSON.parse(savedMembers));
       if (savedContributions) setContributions(JSON.parse(savedContributions));
@@ -265,6 +290,26 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       if (savedAudit) setAuditLogs(JSON.parse(savedAudit));
       if (savedAuth === 'true') setIsAdmin(true);
       if (savedProjects) setSpecialProjects(JSON.parse(savedProjects));
+      if (savedPeriods) {
+        // Restore exactly what the treasurer saved — no hardcoded defaults
+        setActivePeriods(JSON.parse(savedPeriods));
+      } else {
+        // First-ever load: auto-detect periods from existing contribution seed data
+        const contribs: { month: string; year: number }[] = savedContributions
+          ? JSON.parse(savedContributions)
+          : INITIAL_CONTRIBUTIONS;
+        const MONTH_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const periodMap = new Map<string, { month: string; year: number }>();
+        contribs.forEach((c: { month: string; year: number }) => {
+          const key = `${c.month}-${c.year}`;
+          if (!periodMap.has(key)) periodMap.set(key, { month: c.month, year: c.year });
+        });
+        const derived = Array.from(periodMap.values()).sort((a, b) => {
+          if (a.year !== b.year) return a.year - b.year;
+          return MONTH_ORDER.indexOf(a.month) - MONTH_ORDER.indexOf(b.month);
+        });
+        setActivePeriods(derived);
+      }
     } catch (e) {
       console.warn('Could not load stored treasury data:', e);
     }
@@ -329,10 +374,11 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs));
       localStorage.setItem(STORAGE_KEYS.AUTH, isAdmin ? 'true' : 'false');
       localStorage.setItem(STORAGE_KEYS.SPECIAL_PROJECTS, JSON.stringify(specialProjects));
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_PERIODS, JSON.stringify(activePeriods));
     } catch (e) {
       console.error('Failed to sync to local storage:', e);
     }
-  }, [members, contributions, expenses, settings, auditLogs, isAdmin, isLoading, specialProjects]);
+  }, [members, contributions, expenses, settings, auditLogs, isAdmin, isLoading, specialProjects, activePeriods]);
 
   // ────────────────────────────────────────────────────────
   // Calculations — all amounts in KES
@@ -364,14 +410,24 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     [settings.openingBalance, totalMonthly, totalTea, totalOther, totalExpenses]
   );
 
-  // Monthly stats per calendar month
+  // Monthly stats per active period (month + year)
   const monthlyStats: MonthlyStat[] = useMemo(() => {
-    const allMonths = Array.from(
-      new Set([...HISTORICAL_MONTHS, ...contributions.map((c) => c.month)])
-    );
+    // Merge activePeriods with any periods found in contribution data (safety net)
+    const periodSet = new Map<string, { month: string; year: number }>();
+    activePeriods.forEach((p) => periodSet.set(`${p.month}-${p.year}`, p));
+    contributions.forEach((c) => {
+      const key = `${c.month}-${c.year}`;
+      if (!periodSet.has(key)) periodSet.set(key, { month: c.month, year: c.year });
+    });
 
-    return allMonths.map((m) => {
-      const year = 2026;
+    // Sort periods chronologically
+    const MONTH_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const sortedPeriods = Array.from(periodSet.values()).sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return MONTH_ORDER.indexOf(a.month) - MONTH_ORDER.indexOf(b.month);
+    });
+
+    return sortedPeriods.map(({ month: m, year }) => {
       const monthContribs = contributions.filter(
         (c) => c.month.toLowerCase() === m.toLowerCase() && c.year === year
       );
@@ -391,8 +447,10 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
       const monthExpenses = expenses
         .filter((e) => {
           const d = new Date(e.date);
-          const expMonth = d.toLocaleString('en-US', { month: 'long' });
-          return expMonth.toLowerCase() === m.toLowerCase();
+          return (
+            d.toLocaleString('en-US', { month: 'long' }).toLowerCase() === m.toLowerCase() &&
+            d.getFullYear() === year
+          );
         })
         .reduce((sum, e) => sum + e.amount, 0);
 
@@ -421,7 +479,7 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         totalContributorsCount: totalUniqueContributors,
       };
     });
-  }, [contributions, expenses]);
+  }, [contributions, expenses, activePeriods]);
 
   // ────────────────────────────────────────────────────────
   // Auth
@@ -435,6 +493,11 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => setIsAdmin(false);
+
+  // ────────────────────────────────────────────────────────
+  // Period (Month + Year) management
+  // ────────────────────────────────────────────────────────
+  // (addPeriod / removePeriod are defined after logAudit below)
 
   // ────────────────────────────────────────────────────────
   // Log Audit helper
@@ -462,6 +525,25 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         if (error) console.error('Audit log Supabase error:', error);
       });
     }
+  };
+
+  const addPeriod = (month: string, year: number) => {
+    setActivePeriods((prev) => {
+      const exists = prev.some((p) => p.month === month && p.year === year);
+      if (exists) return prev;
+      const MONTH_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const next = [...prev, { month, year }].sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return MONTH_ORDER.indexOf(a.month) - MONTH_ORDER.indexOf(b.month);
+      });
+      return next;
+    });
+    logAudit('Treasurer', 'CREATE', `Opened new contribution period: ${month} ${year}`);
+  };
+
+  const removePeriod = (month: string, year: number) => {
+    setActivePeriods((prev) => prev.filter((p) => !(p.month === month && p.year === year)));
+    logAudit('Treasurer', 'DELETE', `Removed contribution period: ${month} ${year}`);
   };
 
   // ────────────────────────────────────────────────────────
@@ -943,6 +1025,18 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
     setExpenses(INITIAL_EXPENSES);
     setSettings(DEFAULT_SETTINGS);
     setSpecialProjects(INITIAL_SPECIAL_PROJECTS);
+    // Re-derive periods from seed contributions on reset
+    const MONTH_ORDER = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const periodMap = new Map<string, { month: string; year: number }>();
+    INITIAL_CONTRIBUTIONS.forEach((c) => {
+      const key = `${c.month}-${c.year}`;
+      if (!periodMap.has(key)) periodMap.set(key, { month: c.month, year: c.year });
+    });
+    const derived = Array.from(periodMap.values()).sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return MONTH_ORDER.indexOf(a.month) - MONTH_ORDER.indexOf(b.month);
+    });
+    setActivePeriods(derived);
     logAudit('System', 'IMPORT', 'Reset treasury records to initial seed data.');
     try { localStorage.clear(); } catch {}
   };
@@ -968,6 +1062,9 @@ export function TreasuryProvider({ children }: { children: React.ReactNode }) {
         totalOther,
         totalExpenses,
         monthlyStats,
+        activePeriods,
+        addPeriod,
+        removePeriod,
         loginAsAdmin,
         logout,
         addMember,

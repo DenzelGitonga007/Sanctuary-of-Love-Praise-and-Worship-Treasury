@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useTreasury } from '@/lib/store';
-import { HISTORICAL_MONTHS } from '@/lib/constants';
 import { generateMemberWhatsAppStatement } from '@/lib/export';
 import {
   ArrowLeft,
@@ -24,7 +23,7 @@ export default function MemberDetailPage() {
   const params = useParams();
   const router = useRouter();
   const memberId = params?.id as string;
-  const { members, contributions, settings } = useTreasury();
+  const { members, contributions, settings, activePeriods } = useTreasury();
   const [copied, setCopied] = useState(false);
 
   const member = members.find((m) => m.id === memberId);
@@ -47,16 +46,16 @@ export default function MemberDetailPage() {
 
   const memberConts = contributions.filter((c) => c.memberId === member.id);
 
-  // Build row for each historical month
-  const monthRows = HISTORICAL_MONTHS.map((month) => {
+  // Build a row for each active period using (month, year) pairs
+  const monthRows = activePeriods.map(({ month, year }) => {
     const monthlyCont = memberConts.find(
-      (c) => c.month.toLowerCase() === month.toLowerCase() && c.type === 'MONTHLY'
+      (c) => c.month.toLowerCase() === month.toLowerCase() && c.year === year && c.type === 'MONTHLY'
     );
     const teaCont = memberConts.find(
-      (c) => c.month.toLowerCase() === month.toLowerCase() && c.type === 'TEA'
+      (c) => c.month.toLowerCase() === month.toLowerCase() && c.year === year && c.type === 'TEA'
     );
     const otherCont = memberConts.find(
-      (c) => c.month.toLowerCase() === month.toLowerCase() && !['MONTHLY', 'TEA'].includes(c.type)
+      (c) => c.month.toLowerCase() === month.toLowerCase() && c.year === year && !['MONTHLY', 'TEA'].includes(c.type)
     );
 
     const mVal = monthlyCont ? monthlyCont.amount : 0;
@@ -66,7 +65,7 @@ export default function MemberDetailPage() {
 
     return {
       month,
-      year: 2026,
+      year,
       monthly: mVal,
       tea: tVal,
       other: oVal,

@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useTreasury } from '@/lib/store';
 import { generateWhatsAppMonthlySummary } from '@/lib/export';
 import { X, Copy, Check, MessageSquare, Sparkles } from 'lucide-react';
-import { HISTORICAL_MONTHS } from '@/lib/constants';
 
 interface WhatsAppModalProps {
   isOpen: boolean;
@@ -13,13 +12,17 @@ interface WhatsAppModalProps {
 }
 
 export default function WhatsAppModal({ isOpen, onClose, defaultMonth = 'September' }: WhatsAppModalProps) {
-  const { members, contributions, monthlyStats, currentBalance } = useTreasury();
-  const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
+  const { members, contributions, monthlyStats, currentBalance, activePeriods } = useTreasury();
+  const defaultPeriod = activePeriods[activePeriods.length - 1] || { month: defaultMonth, year: new Date().getFullYear() };
+  const [selectedMonth, setSelectedMonth] = useState(defaultPeriod.month);
+  const [selectedYear, setSelectedYear] = useState(defaultPeriod.year);
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
-  const stat = monthlyStats.find((s) => s.month.toLowerCase() === selectedMonth.toLowerCase()) || {
+  const stat = monthlyStats.find(
+    (s) => s.month.toLowerCase() === selectedMonth.toLowerCase() && s.year === selectedYear
+  ) || {
     monthlyTotal: 0,
     teaTotal: 0,
     otherTotal: 0,
@@ -28,7 +31,7 @@ export default function WhatsAppModal({ isOpen, onClose, defaultMonth = 'Septemb
 
   const messageText = generateWhatsAppMonthlySummary(
     selectedMonth,
-    2026,
+    selectedYear,
     stat.monthlyTotal,
     stat.teaTotal,
     stat.otherTotal,
@@ -72,13 +75,17 @@ export default function WhatsAppModal({ isOpen, onClose, defaultMonth = 'Septemb
             Select Month:
           </span>
           <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
+            value={`${selectedMonth}|${selectedYear}`}
+            onChange={(e) => {
+              const [m, y] = e.target.value.split('|');
+              setSelectedMonth(m);
+              setSelectedYear(Number(y));
+            }}
             className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-church-dark-700 bg-white dark:bg-church-dark-800 text-slate-800 dark:text-white focus:ring-2 focus:ring-emerald-500"
           >
-            {HISTORICAL_MONTHS.map((m) => (
-              <option key={m} value={m}>
-                {m} 2026
+            {activePeriods.map((p) => (
+              <option key={`${p.month}-${p.year}`} value={`${p.month}|${p.year}`}>
+                {p.month} {p.year}
               </option>
             ))}
           </select>

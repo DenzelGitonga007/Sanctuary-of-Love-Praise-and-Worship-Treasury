@@ -41,6 +41,7 @@ export const MONTHS = [
 
 export const HISTORICAL_MONTHS = ['April', 'May', 'June', 'July', 'August', 'September'];
 
+
 export const DEFAULT_SETTINGS: SystemSettings = {
   organizationName: 'Sanctuary of Love Worship Center',
   location: 'Dandora, Kenya',

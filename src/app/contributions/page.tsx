@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useTreasury } from '@/lib/store';
 import { ContributionType } from '@/types';
-import { HISTORICAL_MONTHS } from '@/lib/constants';
 import { exportContributionsToCSV, downloadFile } from '@/lib/export';
 import {
   HeartHandshake,
@@ -18,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function ContributionsPage() {
-  const { members, contributions, settings } = useTreasury();
+  const { members, contributions, settings, activePeriods } = useTreasury();
   const [selectedMonth, setSelectedMonth] = useState<string>('All');
   const [selectedType, setSelectedType] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,10 +85,10 @@ export default function ContributionsPage() {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-church-dark-700 bg-white dark:bg-church-dark-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-church-sky-500 font-medium"
             >
-              <option value="All">All Months (April – Sept 2026)</option>
-              {HISTORICAL_MONTHS.map((m) => (
-                <option key={m} value={m}>
-                  {m} 2026
+              <option value="All">All Months</option>
+              {activePeriods.map((p) => (
+                <option key={`${p.month}-${p.year}`} value={p.month}>
+                  {p.month} {p.year}
                 </option>
               ))}
             </select>

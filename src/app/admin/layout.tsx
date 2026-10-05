@@ -14,6 +14,7 @@ import {
   History,
   Rocket,
   Lock,
+  CalendarPlus,
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -48,9 +49,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const adminNav = [
     { name: 'Overview', href: '/admin', icon: LayoutDashboard },
     { name: 'Import Lists', href: '/admin/import', icon: Sparkles, badge: 'Smart' },
+    { name: 'Months', href: '/admin/months', icon: CalendarPlus, badge: 'New' },
     { name: 'Contributions', href: '/admin/contributions', icon: HeartHandshake },
     { name: 'Expenses', href: '/admin/expenses', icon: Receipt },
-    { name: 'Projects', href: '/admin/projects', icon: Rocket, badge: 'New' },
+    { name: 'Projects', href: '/admin/projects', icon: Rocket },
     { name: 'Members', href: '/admin/members', icon: Users },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
     { name: 'Audit Log', href: '/admin/audit-log', icon: History },

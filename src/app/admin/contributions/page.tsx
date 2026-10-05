@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useTreasury } from '@/lib/store';
 import { ContributionType } from '@/types';
-import { HISTORICAL_MONTHS, MONTHS } from '@/lib/constants';
+import { MONTHS } from '@/lib/constants';
 import {
   HeartHandshake,
   PlusCircle,
@@ -43,6 +43,7 @@ export default function AdminContributionsPage() {
     deleteContributionsByMonth,
     bulkDeleteContributions,
     settings,
+    activePeriods,
   } = useTreasury();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,8 +60,9 @@ export default function AdminContributionsPage() {
 
   // Form state for new contribution
   const [memberId, setMemberId] = useState(members[0]?.id || '');
-  const [month, setMonth] = useState('September');
-  const [year] = useState(2026);
+  const defaultPeriod = activePeriods[activePeriods.length - 1] || { month: 'October', year: 2026 };
+  const [month, setMonth] = useState(defaultPeriod.month);
+  const [year, setYear] = useState(defaultPeriod.year);
   const [type, setType] = useState<ContributionType>('MONTHLY');
   const [amount, setAmount] = useState<number>(100);
   const [dateReceived, setDateReceived] = useState(new Date().toISOString().split('T')[0]);
@@ -132,16 +134,17 @@ export default function AdminContributionsPage() {
 
   const handleWipeMonth = () => {
     if (selectedMonth === 'All') return;
+    const selectedYear = activePeriods.find((p) => p.month === selectedMonth)?.year ?? new Date().getFullYear();
     const count = contributions.filter(
-      (c) => c.month.toLowerCase() === selectedMonth.toLowerCase() && c.year === 2026
+      (c) => c.month.toLowerCase() === selectedMonth.toLowerCase() && c.year === selectedYear
         && (selectedType === 'All' || c.type === selectedType)
     ).length;
-    if (!confirm(`This will permanently delete ALL ${count} contribution record(s) for ${selectedMonth} 2026${selectedType !== 'All' ? ` (${selectedType})` : ''}.\n\nType "yes" in the next prompt to confirm.`)) return;
-    const confirmed = prompt(`Type YES to confirm wiping ${selectedMonth} 2026 records:`);
+    if (!confirm(`This will permanently delete ALL ${count} contribution record(s) for ${selectedMonth} ${selectedYear}${selectedType !== 'All' ? ` (${selectedType})` : ''}.\n\nType "yes" in the next prompt to confirm.`)) return;
+    const confirmed = prompt(`Type YES to confirm wiping ${selectedMonth} ${selectedYear} records:`);
     if (confirmed?.toUpperCase() !== 'YES') return;
-    const deleted = deleteContributionsByMonth(selectedMonth, 2026, selectedType !== 'All' ? selectedType as ContributionType : undefined);
+    const deleted = deleteContributionsByMonth(selectedMonth, selectedYear, selectedType !== 'All' ? selectedType as ContributionType : undefined);
     setSelectedIds(new Set());
-    flash(`Wiped ${deleted} record(s) for ${selectedMonth} 2026.`);
+    flash(`Wiped ${deleted} record(s) for ${selectedMonth} ${selectedYear}.`);
   };
 
   const startEdit = (id: string, currentAmount: number) => {
@@ -212,9 +215,17 @@ export default function AdminContributionsPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase mb-1">Month</label>
-              <select value={month} onChange={(e) => setMonth(e.target.value)}
+              <select value={`${month}|${year}`} onChange={(e) => {
+                const [m, y] = e.target.value.split('|');
+                setMonth(m);
+                setYear(Number(y));
+              }}
                 className="w-full p-2 text-xs rounded-xl border border-slate-300 dark:border-church-dark-700 bg-white dark:bg-church-dark-800">
-                {MONTHS.map((m) => <option key={m} value={m}>{m} {year}</option>)}
+                {activePeriods.map((p) => (
+                  <option key={`${p.month}-${p.year}`} value={`${p.month}|${p.year}`}>
+                    {p.month} {p.year}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -269,7 +280,9 @@ export default function AdminContributionsPage() {
           <select value={selectedMonth} onChange={(e) => { setSelectedMonth(e.target.value); setSelectedIds(new Set()); }}
             className="w-full p-2 text-xs rounded-xl border border-slate-300 dark:border-church-dark-700 bg-white dark:bg-church-dark-800">
             <option value="All">All Months</option>
-            {HISTORICAL_MONTHS.map((m) => <option key={m} value={m}>{m} 2026</option>)}
+            {activePeriods.map((p) => (
+              <option key={`${p.month}-${p.year}`} value={p.month}>{p.month} {p.year}</option>
+            ))}
           </select>
 
           <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedIds(new Set()); }}

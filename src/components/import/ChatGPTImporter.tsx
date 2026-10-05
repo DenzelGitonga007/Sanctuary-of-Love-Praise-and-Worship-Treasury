@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useTreasury } from '@/lib/store';
 import { parseContributionList } from '@/lib/parser';
 import { ContributionType, ParsedItem } from '@/types';
-import { HISTORICAL_MONTHS } from '@/lib/constants';
 import confetti from 'canvas-confetti';
 import {
   Sparkles,
@@ -77,11 +76,13 @@ export default function ChatGPTImporter() {
     addMember,
     settings,
     isSupabaseLive,
+    activePeriods,
   } = useTreasury();
 
   const [rawText, setRawText] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('September');
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const latestPeriod = activePeriods[activePeriods.length - 1] || { month: 'October', year: 2026 };
+  const [selectedMonth, setSelectedMonth] = useState(latestPeriod.month);
+  const [selectedYear, setSelectedYear] = useState(latestPeriod.year);
   const [selectedType, setSelectedType] = useState<ContributionType>('MONTHLY');
   const [duplicateGlobalAction, setDuplicateGlobalAction] = useState<'REPLACE' | 'SKIP' | 'ADD'>('REPLACE');
 
@@ -305,13 +306,17 @@ export default function ChatGPTImporter() {
               Month
             </label>
             <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              value={`${selectedMonth}|${selectedYear}`}
+              onChange={(e) => {
+                const [m, y] = e.target.value.split('|');
+                setSelectedMonth(m);
+                setSelectedYear(Number(y));
+              }}
               className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-church-dark-700 bg-white dark:bg-church-dark-800 text-slate-800 dark:text-white focus:ring-2 focus:ring-church-sky-500"
             >
-              {HISTORICAL_MONTHS.map((m) => (
-                <option key={m} value={m}>
-                  {m} 2026
+              {activePeriods.map((p) => (
+                <option key={`${p.month}-${p.year}`} value={`${p.month}|${p.year}`}>
+                  {p.month} {p.year}
                 </option>
               ))}
             </select>
